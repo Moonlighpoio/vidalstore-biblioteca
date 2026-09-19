@@ -1,35 +1,11 @@
 import { writeFile } from 'node:fs/promises';
+import {
+  type FreeToGame,
+  mapGames,
+} from './seed-utils';
 
 const API_URL =
   'https://www.freetogame.com/api/games';
-
-interface FreeToGame {
-  id: number;
-  title: string;
-  thumbnail: string;
-  short_description: string;
-  game_url: string;
-  genre: string;
-  platform: string;
-  publisher: string;
-  developer: string;
-  release_date: string;
-}
-
-interface GameRecord {
-  id: string;
-  externalId: number;
-  name: string;
-  image: string;
-  description: string;
-  url: string;
-  genre: string;
-  platform: string;
-  publisher: string;
-  developer: string;
-  releaseDate: string;
-  source: string;
-}
 
 async function fetchGames(): Promise<FreeToGame[]> {
   const response = await fetch(API_URL);
@@ -43,24 +19,9 @@ async function fetchGames(): Promise<FreeToGame[]> {
   return (await response.json()) as FreeToGame[];
 }
 
-function mapGame(game: FreeToGame): GameRecord {
-  return {
-    id: `game-${game.id}`,
-    externalId: game.id,
-    name: game.title,
-    image: game.thumbnail,
-    description: game.short_description,
-    url: game.game_url,
-    genre: game.genre,
-    platform: game.platform,
-    publisher: game.publisher,
-    developer: game.developer,
-    releaseDate: game.release_date,
-    source: 'FreeToGame',
-  };
-}
-
-async function writeDatasets(games: GameRecord[]) {
+async function writeDatasets(
+  games: ReturnType<typeof mapGames>,
+): Promise<void> {
   await writeFile(
     'data/libraries.json',
     JSON.stringify(games, null, 2),
@@ -72,8 +33,10 @@ async function writeDatasets(games: GameRecord[]) {
   );
 }
 
-async function main() {
-  console.log('Fetching games from FreeToGame API...');
+async function main(): Promise<void> {
+  console.log(
+    'Fetching games from FreeToGame API...',
+  );
 
   const externalGames = await fetchGames();
 
@@ -83,13 +46,11 @@ async function main() {
     );
   }
 
-  const games = externalGames.map(mapGame);
+  const games = mapGames(externalGames);
 
   await writeDatasets(games);
 
-  console.log(
-    `Generated ${games.length} games`,
-  );
+  console.log(`Generated ${games.length} games`);
   console.log(
     'Source: https://www.freetogame.com',
   );
