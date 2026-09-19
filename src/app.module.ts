@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { HttpModule } from '@nestjs/axios';
+import { LibraryModule } from './library/library.module';
 
 @Module({
   imports: [
@@ -8,6 +9,7 @@ import { HttpModule } from '@nestjs/axios';
       isGlobal: true,
     }),
     HttpModule,
+    LibraryModule,
   ],
 })
 export class AppModule {}
