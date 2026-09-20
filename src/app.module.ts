@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { HttpModule } from '@nestjs/axios';
 import { LibraryModule } from './library/library.module';
 import { PurchaseModule } from './purchase/purchase.module';
+import { LicensesModule } from './licenses/licenses.module';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { PurchaseModule } from './purchase/purchase.module';
     HttpModule,
     LibraryModule,
     PurchaseModule,
+    LicensesModule,
   ],
 })
 export class AppModule {}
