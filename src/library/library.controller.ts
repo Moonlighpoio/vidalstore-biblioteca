@@ -6,37 +6,28 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Request } from 'express';
-import { TokenPresenceGuard } from '../common/guards/token-presence.guard';
 import { LibraryService } from './library.service';
+import { TokenPresenceGuard } from '../common/guards/token-presence.guard';
 
 interface AuthenticatedRequest extends Request {
   user?: {
     sub: string;
-    groups: string[];
   };
 }
 
-@Controller('biblioteca')
+@Controller('v1/biblioteca')
 @UseGuards(TokenPresenceGuard)
 export class LibraryController {
-  constructor(
-    private readonly libraryService: LibraryService,
-  ) {}
+  constructor(private readonly libraryService: LibraryService) {}
 
   @Get()
-  findOwnLibrary(
-    @Req() request: AuthenticatedRequest,
-  ) {
-    const userSub = request.user?.sub;
+  findOwnLibrary(@Req() request: AuthenticatedRequest) {
+    const userId = request.user?.sub;
 
-    if (!userSub) {
-      throw new UnauthorizedException(
-        'Authenticated user is required',
-      );
+    if (!userId) {
+      throw new UnauthorizedException('Token subject is required');
     }
 
-    return this.libraryService.findByUserId(
-      userSub,
-    );
+    return this.libraryService.findByUserId(userId);
   }
 }

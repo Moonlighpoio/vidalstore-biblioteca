@@ -2,48 +2,49 @@ import {
   Controller,
   Delete,
   Get,
-  HttpCode,
-  HttpStatus,
   Param,
   Req,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import { Request } from 'express';
+import { LicensesService, type License } from './licenses.service';
 import { TokenPresenceGuard } from '../common/guards/token-presence.guard';
 import { AdministratorGuard } from '../common/guards/administrator.guard';
-import { LicensesService } from './licenses.service';
 
 interface AuthenticatedRequest extends Request {
-  user: {
+  user?: {
     sub: string;
-    groups: string[];
+    'cognito:groups'?: string[];
   };
 }
 
-@Controller('licencias')
-@UseGuards(
-  TokenPresenceGuard,
-  AdministratorGuard,
-)
+@Controller('v1/licencias')
+@UseGuards(TokenPresenceGuard)
 export class LicensesController {
-  constructor(
-    private readonly licensesService: LicensesService,
-  ) {}
+  constructor(private readonly licensesService: LicensesService) {}
 
   @Get()
-  findAll() {
+  @UseGuards(AdministratorGuard)
+  findAll(@Req() request: AuthenticatedRequest): License[] {
+    if (!request.user?.sub) {
+      throw new UnauthorizedException();
+    }
+
     return this.licensesService.findAll();
   }
 
   @Delete(':id')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  revoke(
-    @Param('id') licenseId: string,
+  @UseGuards(AdministratorGuard)
+  revokeLicense(
     @Req() request: AuthenticatedRequest,
-  ) {
-    this.licensesService.revoke(
-      licenseId,
-      request.user.sub,
-    );
+    @Param('id') id: string,
+  ): License {
+    if (!request.user?.sub) {
+      throw new UnauthorizedException();
+    }
+
+    const revokedBy = request.user.sub;
+    return this.licensesService.revokeLicense(id, revokedBy);
   }
 }
