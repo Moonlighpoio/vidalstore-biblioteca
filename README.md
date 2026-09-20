@@ -1,124 +1,375 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# VidalStore - Biblioteca Service
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Microservicio de biblioteca y licencias para VidalStore.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Arquitectura
 
-## Description
+┌─────────────────────┐
+│ Angular (Front) │
+└──────────┬──────────┘
+│
+▼
+┌─────────────────────┐
+│ API Gateway │ ← Valida token contra JWKS
+└──────────┬──────────┘
+│
+▼
+┌─────────────────────┐
+│ BFF │ ← Autoriza por grupos
+└──────────┬──────────┘
+│
+▼
+┌─────────────────────┐
+│ Biblioteca Service │ ← Este repositorio
+└─────────────────────┘
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
-## Project setup
+## Requisitos
 
-```bash
-$ npm install
-```
+- Node.js 18+
+- npm o yarn
 
-## Compile and run the project
+## Instalación
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm install
 ```
 
-## Run tests
+## Variables de entorno
+
+Copiar `.env.example` a `.env` y ajustar valores:
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+cp .env.example .env
 ```
 
-## Deployment
+**Variables requeridas**:
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+```env
+PORT=3003
+NODE_ENV=development
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+# Cognito configuration
+COGNITO_REGION=us-east-1
+COGNITO_USER_POOL_ID=us-east-1_example
+COGNITO_APP_CLIENT_ID=example-client-id
+COGNITO_ISSUER=[https://cognito-idp.us-east-1.amazonaws.com/us-east-1_example](https://cognito-idp.us-east-1.amazonaws.com/us-east-1_example)
+COGNITO_JWKS_URI=[https://cognito-idp.us-east-1.amazonaws.com/us-east-1_example/.well-known/jwks.json](https://cognito-idp.us-east-1.amazonaws.com/us-east-1_example/.well-known/jwks.json)
+
+# Internal settings
+MAX_LICENSES_PER_USER=100
+CACHE_TTL_SECONDS=300
+
+# Catalog service URL (optional, for validation)
+CATALOG_SERVICE_URL=http://localhost:3002
+```
+
+## Levantar el servicio
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npm run start:dev
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+El servicio estará disponible en `http://localhost:3003`
 
-## Observability
-
-In production applications, observability is essential for understanding how your system behaves, detecting issues early, and maintaining reliable performance.
-
-[NestJS Observe](https://observe.nestjs.com) automatically instruments your NestJS application, giving you deep visibility into your system with minimal setup:
-
-- **Distributed tracing:** Follow requests across services and understand how they flow through your system.
-- **Waterfall analysis:** Visualize request execution and identify slow operations, bottlenecks, and unexpected delays.
-- **Performance analysis:** Analyze application performance in real time and quickly pinpoint areas that need optimization.
-- **Metrics:** Track key application and infrastructure metrics to understand system health and performance trends.
-- **Logging:** Centralize and correlate logs with traces and other telemetry to make debugging easier.
-- **Error tracking:** Detect errors quickly and investigate their root causes with the surrounding context.
-- **SLA monitoring:** Track service-level objectives and identify when your application is approaching or exceeding defined thresholds.
-- **Alarms and alerts:** Set up alerts for critical errors, performance degradation, SLA violations, and other anomalies so your team can react quickly.
-
-To add it to this project:
+## Ejecutar seed
 
 ```bash
-$ npm install @nestjs/observe
+npm run seed
 ```
 
-Then follow the [setup guide](https://docs.nestjs.com/observability/overview) - it takes a single import and an app key.
+Esto generará:
+- `data/libraries.json` → Juegos desde FreeToGame API
+- `data/licenses.json` → Licencias distribuidas entre usuarios
 
-The free plan needs no payment details and covers 300,000 events a month. You can also browse the [live demo](https://www.observe-demo.nestjs.com/dashboard) first - the whole dashboard over a busy service's data, with nothing to install.
+## Pruebas
 
-## Resources
+```bash
+# Pruebas unitarias
+npm test
 
-Check out a few resources that may come in handy when working with NestJS:
+# Pruebas e2e
+npm run test:e2e
+```
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Auto-instrument your application with [NestJS Observe](https://observe.nestjs.com). Distributed tracing, metrics, and logging made easy. Error tracking and performance monitoring for your NestJS applications.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+## Endpoints
 
-## Support
+| Método | Ruta | Descripción | Autorización |
+|--------|------|-------------|--------------|
+| `GET` | `/health` | Health check | Público |
+| `GET` | `/v1/biblioteca` | Lista biblioteca del usuario | Sesión válida |
+| `POST` | `/v1/compras` | Crea nueva licencia | Sesión válida |
+| `GET` | `/v1/licencias` | Lista todas las licencias | `administradores` |
+| `DELETE` | `/v1/licencias/:id` | Revoca licencia | `administradores` |
+| `GET` | `/v1/auditoria` | Historial de revocaciones | `administradores` |
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+## Ejemplos de curl
 
-## Stay in touch
+### Health check
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+```bash
+curl -i http://localhost:3003/health
+```
 
-## License
+**Respuesta esperada**:
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{"status":"ok","service":"vidalstore-biblioteca","timestamp":"2026-09-20T12:45:00.000Z"}
+```
+
+### Biblioteca sin token (401)
+
+```bash
+curl -i http://localhost:3003/v1/biblioteca
+```
+
+**Respuesta esperada**:
+
+```http
+HTTP/1.1 401 Unauthorized
+```
+
+### Biblioteca con token (200)
+
+```bash
+curl -i \
+  http://localhost:3003/v1/biblioteca \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+```
+
+**Respuesta esperada**:
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+[{"id":"lib-1","userId":"user-123","gameId":"game-1","purchasedAt":"2026-09-20T12:45:00.000Z","revoked":false}]
+```
+
+### Compras con token (201)
+
+```bash
+curl -i \
+  -X POST http://localhost:3003/v1/compras \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -d '{"gameId":"game-1"}'
+```
+
+**Respuesta esperada**:
+
+```http
+HTTP/1.1 201 Created
+Content-Type: application/json
+
+{"id":"purchase-001","userId":"user-123","gameId":"game-1","purchasedAt":"2026-09-20T12:45:00.000Z"}
+```
+
+### Licencias con jugador (403)
+
+```bash
+curl -i \
+  http://localhost:3003/v1/licencias \
+  -H "Authorization: Bearer $PLAYER_TOKEN"
+```
+
+**Respuesta esperada**:
+
+```http
+HTTP/1.1 403 Forbidden
+```
+
+### Licencias con administrador (200)
+
+```bash
+curl -i \
+  http://localhost:3003/v1/licencias \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+**Respuesta esperada**:
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+[{"id":"lib-1","userId":"user-123","gameId":"game-1","purchasedAt":"2026-09-20T12:45:00.000Z","revoked":false}]
+```
+
+### Revocar licencia (200)
+
+```bash
+curl -i \
+  -X DELETE http://localhost:3003/v1/licencias/lib-1 \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+**Respuesta esperada**:
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{"id":"lib-1","userId":"user-123","gameId":"game-1","purchasedAt":"2026-09-20T12:45:00.000Z","revoked":true,"revokedAt":"2026-09-20T12:46:00.000Z","revokedBy":"admin-001"}
+```
+
+### Auditoría con administrador (200)
+
+```bash
+curl -i \
+  http://localhost:3003/v1/auditoria \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+**Respuesta esperada**:
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+[{"id":"audit-001","licenseId":"lib-1","gameId":"game-1","userId":"user-123","revokedBy":"admin-001","revokedAt":"2026-09-20T12:46:00.000Z"}]
+```
+
+## Flujo de autenticación
+
+1. **Usuario se autentica en Cognito**
+   - Frontend redirige a Cognito con PKCE
+   - Usuario ingresa credenciales
+   - Cognito devuelve `access_token` con claims:
+     - `sub`: ID del usuario
+     - `cognito:groups`: ["jugadores"] o ["administradores"]
+
+2. **Frontend envía petición**
+   - Agrega token en header: `Authorization: Bearer <access_token>`
+   - Envía a API Gateway
+
+3. **API Gateway valida token**
+   - Verifica firma contra JWKS
+   - Verifica emisor (`iss`)
+   - Verifica vigencia (`exp`, `nbf`)
+   - Verifica tipo de token (`token_use = access`)
+   - Verifica `client_id`
+   - Si es inválido → `401 Unauthorized`
+
+4. **BFF autoriza por grupo**
+   - Lee `cognito:groups` del token
+   - Si la ruta requiere `administradores` y el usuario es `jugadores` → `403 Forbidden`
+   - Si el grupo es válido → enruta al microservicio
+
+5. **Microservicio entrega datos**
+   - Obtiene `userId` desde `request.user.sub`
+   - Filtra datos por usuario
+   - Retorna respuesta
+
+## Códigos de respuesta
+
+| Código | Significado | Cuándo se usa |
+|--------|-------------|---------------|
+| `200 OK` | Éxito | Lectura exitosa |
+| `201 Created` | Recurso creado | POST exitoso |
+| `204 No Content` | Sin contenido | DELETE exitoso |
+| `401 Unauthorized` | No autenticado | Token ausente, inválido o vencido |
+| `403 Forbidden` | No autorizado | Token válido pero rol insuficiente |
+| `404 Not Found` | No encontrado | Recurso no existe |
+| `500 Internal Server Error` | Error del servidor | Excepción no manejada |
+
+## Flujo de revocación de licencia
+
+1. **Administrador revoca licencia**
+   ```bash
+   DELETE /v1/licencias/:id
+   Authorization: Bearer <admin_token>
+   ```
+
+2. **LicensesService actualiza licencia**
+   ```ts
+   license.revoked = true;
+   license.revokedAt = new Date().toISOString();
+   license.revokedBy = request.user.sub; // "admin-001"
+   ```
+
+3. **AuditService registra auditoría**
+   ```ts
+   {
+     id: "audit-001",
+     licenseId: "lib-1",
+     gameId: "game-1",
+     userId: "user-123",
+     revokedBy: "admin-001",
+     revokedAt: "2026-09-20T12:46:00.000Z"
+   }
+   ```
+
+4. **Auditoría disponible para consulta**
+   ```bash
+   GET /v1/auditoria
+   Authorization: Bearer <admin_token>
+   ```
+
+## Seguridad
+
+- ✅ No commitear `.env` con valores reales
+- ✅ No commitear credenciales de AWS
+- ✅ Los IDs de User Pool y App Client son públicos por diseño
+- ✅ Usar siempre `sessionStorage` en el frontend
+- ✅ Validar token en Gateway, BFF y microservicio
+- ✅ Autorizar por `cognito:groups`, no por scopes
+
+## Estructura del proyecto
+
+src/
+├── library/
+│ ├── library.controller.ts
+│ ├── library.service.ts
+│ └── library.module.ts
+├── purchase/
+│ ├── purchase.controller.ts
+│ ├── purchase.service.ts
+│ └── purchase.module.ts
+├── licenses/
+│ ├── licenses.controller.ts
+│ ├── licenses.service.ts
+│ └── licenses.module.ts
+├── audit/
+│ ├── audit.controller.ts
+│ ├── audit.service.ts
+│ └── audit.module.ts
+├── common/
+│ ├── guards/
+│ │ ├── token-presence.guard.ts
+│ │ └── administrator.guard.ts
+│ └── filters/
+├── health/
+│ ├── health.controller.ts
+│ └── health.module.ts
+├── app.module.ts
+└── main.ts
+
+data/
+├── seed.ts
+├── libraries.json
+└── licenses.json
+
+test/
+├── app.e2e-spec.ts
+└── jest-e2e.json
+
+
+## Scripts disponibles
+
+```bash
+npm run build        # Compilar TypeScript
+npm run start:dev    # Levantar en desarrollo
+npm run start:prod   # Leventar en producción
+npm test             # Ejecutar pruebas unitarias
+npm run test:e2e     # Ejecutar pruebas e2e
+npm run seed         # Generar datos desde FreeToGame API
+npm run lint         # Ejecutar linter
+```
+
+## Licencia
+
+Proyecto académico DUOC UC - DSY1107 - Desarrollo Cloud Native I
