@@ -1,37 +1,42 @@
 import {
-  Body,
   Controller,
-  Post,
+  Get,
   Req,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { TokenPresenceGuard } from '../common/guards/token-presence.guard';
-import { CreateLicenseDto } from '../library/dto/create-license.dto';
-import { PurchaseService } from '../purchase/purchase.service';
+import { LibraryService } from './library.service';
 
 interface AuthenticatedRequest extends Request {
-  user: {
+  user?: {
     sub: string;
     groups: string[];
   };
 }
 
-@Controller('compras')
+@Controller('biblioteca')
 @UseGuards(TokenPresenceGuard)
-export class PurchaseController {
+export class LibraryController {
   constructor(
-    private readonly purchaseService: PurchaseService,
+    private readonly libraryService: LibraryService,
   ) {}
 
-  @Post()
-  create(
+  @Get()
+  findOwnLibrary(
     @Req() request: AuthenticatedRequest,
-    @Body() dto: CreateLicenseDto,
   ) {
-    return this.purchaseService.createPurchase(
-      request.user.sub,
-      dto,
+    const userSub = request.user?.sub;
+
+    if (!userSub) {
+      throw new UnauthorizedException(
+        'Authenticated user is required',
+      );
+    }
+
+    return this.libraryService.findByUserId(
+      userSub,
     );
   }
 }
