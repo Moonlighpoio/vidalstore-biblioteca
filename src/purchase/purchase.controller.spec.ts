@@ -1,74 +1,75 @@
-import {
-  Test,
-  TestingModule,
-} from '@nestjs/testing';
+import { Test, TestingModule } from '@nestjs/testing';
+import { UnauthorizedException } from '@nestjs/common';
 import { PurchaseController } from './purchase.controller';
 import { PurchaseService } from './purchase.service';
 
 describe('PurchaseController', () => {
   let controller: PurchaseController;
-
-  const purchaseService = {
-    createPurchase: jest.fn(),
-  };
+  let service: PurchaseService;
 
   beforeEach(async () => {
-    const module: TestingModule =
-      await Test.createTestingModule({
-        controllers: [
-          PurchaseController,
-        ],
-        providers: [
-          {
-            provide: PurchaseService,
-            useValue: purchaseService,
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [PurchaseController],
+      providers: [
+        {
+          provide: PurchaseService,
+          useValue: {
+            createPurchase: jest.fn(),
           },
-        ],
-      }).compile();
+        },
+      ],
+    }).compile();
 
-    controller =
-      module.get<PurchaseController>(
-        PurchaseController,
-      );
+    controller = module.get<PurchaseController>(PurchaseController);
+    service = module.get<PurchaseService>(PurchaseService);
+  });
 
-    jest.clearAllMocks();
+  it('should be defined', () => {
+    expect(controller).toBeDefined();
   });
 
   it('should use the authenticated user sub', () => {
-    purchaseService.createPurchase.mockReturnValue({
-      id: 'license-001',
-      userId: 'user-player-001',
-      gameId: 'game-001',
-      purchasedAt:
-        '2026-09-20T00:00:00.000Z',
-      revoked: false,
-    });
-
     const request = {
       user: {
         sub: 'user-player-001',
-        groups: ['jugadores'],
       },
-    } as never;
+    } as any;
 
-    const result = controller.create(
+    const mockResult = {
+      id: 'purchase-001',
+      userId: 'user-player-001',
+      gameId: 'game-001',
+      purchasedAt: new Date().toISOString(),
+    };
+
+    jest.spyOn(service, 'createPurchase').mockReturnValue(mockResult);
+
+    const result = controller.createPurchase(
       request,
       {
         gameId: 'game-001',
       },
     );
 
-    expect(
-      purchaseService.createPurchase,
-    ).toHaveBeenCalledWith(
-      'user-player-001',
-      {
-        gameId: 'game-001',
-      },
-    );
+    expect(result).toEqual(mockResult);
+    expect(service.createPurchase).toHaveBeenCalledWith({
+      userId: 'user-player-001',
+      gameId: 'game-001',
+    });
+  });
 
-    expect(result.userId).toBe(
-      'user-player-001',
-    );
+  it('should throw if user is not authenticated', () => {
+    const request = {
+      user: undefined,
+    } as any;
+
+    expect(() => {
+      controller.createPurchase(
+        request,
+        {
+          gameId: 'game-001',
+        },
+      );
+    }).toThrow(UnauthorizedException);
   });
 });

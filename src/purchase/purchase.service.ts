@@ -1,44 +1,41 @@
-import {
-  BadRequestException,
-  Injectable,
-} from '@nestjs/common';
-import { randomUUID } from 'node:crypto';
-import { CreateLicenseDto } from '../library/dto/create-license.dto';
-import { InMemoryLibraryRepository } from '../library/repositories/in-memory-library.repository';
+import { Injectable, BadRequestException } from '@nestjs/common';
+
+export interface Purchase {
+  id: string;
+  userId: string;
+  gameId: string;
+  purchasedAt: string;
+}
+
+export interface CreatePurchaseDto {
+  userId: string;
+  gameId: string;
+}
 
 @Injectable()
 export class PurchaseService {
-  constructor(
-    private readonly repository: InMemoryLibraryRepository,
-  ) {}
+  private readonly purchases: Purchase[] = [];
 
-  createPurchase(
-    userId: string,
-    dto: CreateLicenseDto,
-  ) {
-    const existingLicenses =
-      this.repository.findLicensesByUserId(
-        userId,
-      );
+  createPurchase(dto: CreatePurchaseDto): Purchase {
+    const existing = this.purchases.find(
+      (p) => p.userId === dto.userId && p.gameId === dto.gameId,
+    );
 
-    const alreadyOwnsGame =
-      existingLicenses.some(
-        (license) =>
-          license.gameId === dto.gameId,
-      );
-
-    if (alreadyOwnsGame) {
-      throw new BadRequestException(
-        'The user already owns this game',
-      );
+    if (existing) {
+      throw new BadRequestException('Game already purchased by this user');
     }
 
-    return this.repository.save({
-      id: randomUUID(),
-      userId,
-      gameId: dto.gameId,
+    const purchase: Purchase = {
+      id: crypto.randomUUID(),
       purchasedAt: new Date().toISOString(),
-      revoked: false,
-    });
+      ...dto,
+    };
+
+    this.purchases.push(purchase);
+    return purchase;
+  }
+
+  findAll(): Purchase[] {
+    return this.purchases;
   }
 }

@@ -1,29 +1,57 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { App } from 'supertest/types';
-import { AppModule } from './../src/app.module';
+import { AppModule } from '../src/app.module';
 
-describe('AppController (e2e)', () => {
-  let app: INestApplication<App>;
+describe('VidalStore API (e2e)', () => {
+  let app: INestApplication;
 
-  beforeEach(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
+  beforeAll(async () => {
+    const moduleRef: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
 
-    app = moduleFixture.createNestApplication();
+    app = moduleRef.createNestApplication();
     await app.init();
   });
 
-  it('/ (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/')
-      .expect(200)
-      .expect('Hello World!');
+  afterAll(async () => {
+    await app.close();
   });
 
-  afterEach(async () => {
-    await app.close();
+  describe('Health', () => {
+    it('GET /health should return 200', async () => {
+      return request(app.getHttpServer())
+        .get('/health')
+        .expect(200)
+        .expect((res) => {
+          expect(res.body.status).toBe('ok');
+        });
+    });
+  });
+
+  describe('Library', () => {
+    it('GET /v1/biblioteca without token should return 401', async () => {
+      return request(app.getHttpServer())
+        .get('/v1/biblioteca')
+        .expect(401);
+    });
+  });
+
+  describe('Purchase', () => {
+    it('POST /v1/compras without token should return 401', async () => {
+      return request(app.getHttpServer())
+        .post('/v1/compras')
+        .send({ gameId: 'game-1' })
+        .expect(401);
+    });
+  });
+
+  describe('Licenses', () => {
+    it('GET /v1/licencias without token should return 401', async () => {
+      return request(app.getHttpServer())
+        .get('/v1/licencias')
+        .expect(401);
+    });
   });
 });
