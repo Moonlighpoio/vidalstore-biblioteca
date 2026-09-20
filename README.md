@@ -4,23 +4,41 @@ Microservicio de biblioteca y licencias para VidalStore.
 
 ## Arquitectura
 
+
 ┌─────────────────────┐
+
 │ Angular (Front) │
+
 └──────────┬──────────┘
+
 │
+
 ▼
+
 ┌─────────────────────┐
+
 │ API Gateway │ ← Valida token contra JWKS
+
 └──────────┬──────────┘
+
 │
+
 ▼
+
 ┌─────────────────────┐
+
 │ BFF │ ← Autoriza por grupos
+
 └──────────┬──────────┘
+
 │
+
 ▼
+
 ┌─────────────────────┐
+
 │ Biblioteca Service │ ← Este repositorio
+
 └─────────────────────┘
 
 
