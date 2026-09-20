@@ -2,8 +2,10 @@ import {
   Controller,
   Get,
   Req,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Request } from 'express';
+import { LibraryService } from './library.service';
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -14,13 +16,24 @@ interface AuthenticatedRequest extends Request {
 
 @Controller('biblioteca')
 export class LibraryController {
+  constructor(
+    private readonly libraryService: LibraryService,
+  ) {}
+
   @Get()
   findOwnLibrary(
     @Req() request: AuthenticatedRequest,
   ) {
-    return {
-      message: 'Library endpoint ready',
-      user: request.user ?? null,
-    };
+    const userSub = request.user?.sub;
+
+    if (!userSub) {
+      throw new UnauthorizedException(
+        'Authenticated user is required',
+      );
+    }
+
+    return this.libraryService.findByUserId(
+      userSub,
+    );
   }
 }
