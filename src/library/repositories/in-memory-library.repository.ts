@@ -63,10 +63,9 @@ export class InMemoryLibraryRepository {
       const licenses = JSON.parse(content) as License[];
 
       this.licenses.push(...licenses);
-    } catch (error) {
+    } catch {
       console.warn(
         'No initial licenses were loaded',
-        error,
       );
     }
   }
