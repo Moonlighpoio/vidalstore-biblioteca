@@ -4,7 +4,9 @@ import { LibraryService } from './library.service';
 import { InMemoryLibraryRepository } from './repositories/in-memory-library.repository';
 
 @Module({
-  controllers: [LibraryController],
+  controllers: [
+    LibraryController,
+  ],
   providers: [
     LibraryService,
     InMemoryLibraryRepository,
