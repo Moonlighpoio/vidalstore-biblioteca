@@ -6,6 +6,9 @@ describe('LibraryService', () => {
 
   const repository = {
     findLicensesByUserId: jest.fn(),
+    resolveGameName: jest.fn(
+      () => 'game-001',
+    ),
   } as unknown as InMemoryLibraryRepository;
 
   beforeEach(() => {
@@ -36,6 +39,10 @@ describe('LibraryService', () => {
       'user-player-001',
     );
 
+    expect(
+      repository.resolveGameName,
+    ).toHaveBeenCalledWith('game-001');
+
     expect(result).toEqual({
       userId: 'user-player-001',
       licenses: [
@@ -46,6 +53,7 @@ describe('LibraryService', () => {
           purchasedAt:
             '2026-09-19T12:00:00.000Z',
           revoked: false,
+          gameTitle: 'game-001',
         },
       ],
       total: 1,

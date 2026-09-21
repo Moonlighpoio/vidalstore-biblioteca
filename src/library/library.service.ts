@@ -14,7 +14,12 @@ export class LibraryService {
     const licenses =
       this.repository.findLicensesByUserId(
         userId,
-      );
+      ).map((license) => ({
+        ...license,
+        gameTitle: this.repository.resolveGameName(
+          license.gameId,
+        ),
+      }));
 
     return {
       userId,

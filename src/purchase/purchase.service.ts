@@ -1,4 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
+import { InMemoryLibraryRepository } from '../library/repositories/in-memory-library.repository';
+import { License } from '../library/entities/license.entity';
 
 export interface Purchase {
   id: string;
@@ -14,28 +16,45 @@ export interface CreatePurchaseDto {
 
 @Injectable()
 export class PurchaseService {
-  private readonly purchases: Purchase[] = [];
+  constructor(
+    private readonly libraryRepository: InMemoryLibraryRepository,
+  ) {}
 
   createPurchase(dto: CreatePurchaseDto): Purchase {
-    const existing = this.purchases.find(
-      (p) => p.userId === dto.userId && p.gameId === dto.gameId,
-    );
+    const alreadyOwned = this.libraryRepository
+      .findLicensesByUserId(dto.userId)
+      .some((license) => license.gameId === dto.gameId);
 
-    if (existing) {
+    if (alreadyOwned) {
       throw new BadRequestException('Game already purchased by this user');
     }
 
-    const purchase: Purchase = {
+    const license: License = {
       id: crypto.randomUUID(),
+      userId: dto.userId,
+      gameId: dto.gameId,
       purchasedAt: new Date().toISOString(),
-      ...dto,
+      revoked: false,
     };
 
-    this.purchases.push(purchase);
+    this.libraryRepository.save(license);
+
+    const purchase: Purchase = {
+      id: license.id,
+      userId: license.userId,
+      gameId: license.gameId,
+      purchasedAt: license.purchasedAt,
+    };
+
     return purchase;
   }
 
   findAll(): Purchase[] {
-    return this.purchases;
+    return this.libraryRepository.findAllLicenses().map((license) => ({
+      id: license.id,
+      userId: license.userId,
+      gameId: license.gameId,
+      purchasedAt: license.purchasedAt,
+    }));
   }
 }
