@@ -1,44 +1,21 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { AuditService } from '../audit/audit.service';
-
-export interface License {
-  id: string;
-  userId: string;
-  gameId: string;
-  purchasedAt: string;
-  revoked: boolean;
-  revokedAt?: string;
-  revokedBy?: string;
-}
+import { InMemoryLibraryRepository } from '../library/repositories/in-memory-library.repository';
+import { License } from '../library/entities/license.entity';
 
 @Injectable()
 export class LicensesService {
-  constructor(private readonly auditService: AuditService) {}
-
-  private readonly licenses: License[] = [];
+  constructor(
+    private readonly repository: InMemoryLibraryRepository,
+    private readonly auditService: AuditService,
+  ) {}
 
   findAll(): License[] {
-    return this.licenses;
-  }
-
-  findById(id: string): License | undefined {
-    return this.licenses.find((l) => l.id === id);
-  }
-
-  createLicense(input: Omit<License, 'id' | 'purchasedAt'>): License {
-    const license: License = {
-      id: crypto.randomUUID(),
-      purchasedAt: new Date().toISOString(),
-      ...input,
-      revoked: false,
-    };
-
-    this.licenses.push(license);
-    return license;
+    return this.repository.findAllLicenses();
   }
 
   revokeLicense(licenseId: string, revokedBy: string): License {
-    const license = this.licenses.find((l) => l.id === licenseId);
+    const license = this.repository.findById(licenseId);
 
     if (!license) {
       throw new NotFoundException('License not found');
@@ -47,6 +24,8 @@ export class LicensesService {
     license.revoked = true;
     license.revokedAt = new Date().toISOString();
     license.revokedBy = revokedBy;
+
+    this.repository.update(license);
 
     this.auditService.recordRevocation({
       licenseId: license.id,

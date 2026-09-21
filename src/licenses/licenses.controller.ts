@@ -8,7 +8,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Request } from 'express';
-import { LicensesService, type License } from './licenses.service';
+import { LicensesService } from './licenses.service';
+import type { License } from '../library/entities/license.entity';
 import { TokenPresenceGuard } from '../common/guards/token-presence.guard';
 import { AdministratorGuard } from '../common/guards/administrator.guard';
 
