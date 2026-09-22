@@ -1,393 +1,247 @@
-# VidalStore - Biblioteca Service
+# VidalStore — Biblioteca
 
-Microservicio de biblioteca y licencias para VidalStore.
+Microservicio de **biblioteca, licencias y compras** de la plataforma **VidalStore**. Gestiona la biblioteca del usuario autenticado, crea licencias al comprar un juego, permite a los administradores listar/revocar licencias y deja un registro de auditoría de cada revocación.
+
+VidalStore vende **licencias de uso de videojuegos digitales**: el "botón de comprar" del frontend técnicamente crea una licencia asociada al usuario que la adquiere.
 
 ## Arquitectura
 
+```text
+Navegador (Angular)  :4200
+      │
+      ▼
+API Gateway (NestJS) :8080   ← valida el JWT contra el JWKS de Cognito
+      │  Authorization + x-user-sub + x-user-groups
+      ▼
+BFF (NestJS)         :3000   ← autoriza por grupo de Cognito
+      │
+      ▼
+Biblioteca (este repo) :3003 ← biblioteca, compras, licencias y auditoría
+```
 
-┌─────────────────────┐
+> El microservicio no configura CORS ni valida la firma del JWT: confía en los headers `x-user-sub` y `x-user-groups` enviados por el BFF.
 
-│ Angular (Front) │
+## Funcionalidad
 
-└──────────┬──────────┘
+- **Biblioteca del usuario**: lista las licencias activas del usuario autenticado (`GET /v1/biblioteca`), resuelto desde `x-user-sub`.
+- **Compra de juegos**: `POST /v1/compras` crea una licencia para la cuenta del usuario.
+- **Prevención de compra duplicada**: devuelve `400` si el usuario ya posee ese juego.
+- **Gestión de licencias (admin)**: listado global (`GET /v1/licencias`) y revocación (`DELETE /v1/licencias/:id`).
+- **Auditoría (admin)**: historial de revocaciones con quién revocó y cuándo (`GET /v1/auditoria`).
+- Repositorio en memoria con datos iniciales generados por seed (`libraries.json`, `licenses.json`).
+- Endpoint de health check público.
 
-│
+## Modelo de datos
 
-▼
+```ts
+interface License {
+  id: string;          // UUID
+  userId: string;      // sub del usuario (Cognito)
+  gameId: string;      // ID del juego del catálogo
+  purchasedAt: string;
+  revoked: boolean;
+  revokedAt?: string;
+  revokedBy?: string;  // sub del administrador que revocó
+}
 
-┌─────────────────────┐
+interface AuditRecord {
+  id: string;
+  licenseId: string;
+  gameId: string;
+  userId: string;
+  revokedBy: string;
+  revokedAt: string;
+}
+```
 
-│ API Gateway │ ← Valida token contra JWKS
+## Tecnologías
 
-└──────────┬──────────┘
-
-│
-
-▼
-
-┌─────────────────────┐
-
-│ BFF │ ← Autoriza por grupos
-
-└──────────┬──────────┘
-
-│
-
-▼
-
-┌─────────────────────┐
-
-│ Biblioteca Service │ ← Este repositorio
-
-└─────────────────────┘
-
+- NestJS + TypeScript.
+- `class-validator` (DTOs y validación estricta de campos).
+- Jest (pruebas unitarias y e2e) y Oxlint (linting).
+- AWS Cognito: los administradores se identifican por el grupo `administradores`.
 
 ## Requisitos
 
-- Node.js 18+
-- npm o yarn
+- Node.js 18 o superior.
+- npm.
+- Un BFF corriendo (o un cliente HTTP que envíe `x-user-sub` y `x-user-groups`).
 
 ## Instalación
 
 ```bash
+git clone https://github.com/wsk4/vidalstore-biblioteca.git
+cd vidalstore-biblioteca
 npm install
 ```
 
-## Variables de entorno
-
-Copiar `.env.example` a `.env` y ajustar valores:
+Crea el archivo de entorno local:
 
 ```bash
 cp .env.example .env
 ```
 
-**Variables requeridas**:
+## Variables de entorno
 
-```env
-PORT=3003
-NODE_ENV=development
+| Variable | Descripción | Valor por defecto |
+|---|---|---|
+| `PORT` | Puerto del servicio. | `3003` |
+| `NODE_ENV` | Entorno de ejecución. | `development` |
+| `COGNITO_*` | Datos del user pool (contexto). | — |
+| `MAX_LICENSES_PER_USER` | Tope de licencias por usuario. | `100` |
+| `CACHE_TTL_SECONDS` | TTL de caché en segundos. | `300` |
+| `CATALOG_SERVICE_URL` | URL del catálogo (validación opcional). | `http://localhost:8001` |
 
-# Cognito configuration
-COGNITO_REGION=us-east-1
-COGNITO_USER_POOL_ID=us-east-1_example
-COGNITO_APP_CLIENT_ID=example-client-id
-COGNITO_ISSUER=[https://cognito-idp.us-east-1.amazonaws.com/us-east-1_example](https://cognito-idp.us-east-1.amazonaws.com/us-east-1_example)
-COGNITO_JWKS_URI=[https://cognito-idp.us-east-1.amazonaws.com/us-east-1_example/.well-known/jwks.json](https://cognito-idp.us-east-1.amazonaws.com/us-east-1_example/.well-known/jwks.json)
+Nunca se versiona un `.env` con valores reales ni credenciales de AWS.
 
-# Internal settings
-MAX_LICENSES_PER_USER=100
-CACHE_TTL_SECONDS=300
-
-# Catalog service URL (optional, for validation)
-CATALOG_SERVICE_URL=http://localhost:3002
-```
-
-## Levantar el servicio
+## Ejecución
 
 ```bash
-npm run start:dev
+npm run start:dev    # desarrollo con watch
+npm run build        # compilación
+npm run start:prod   # producción
 ```
 
-El servicio estará disponible en `http://localhost:3003`
+El servicio queda disponible en `http://localhost:3003`.
 
-## Ejecutar seed
+### Cargar datos iniciales (seed)
 
 ```bash
 npm run seed
 ```
 
-Esto generará:
-- `data/libraries.json` → Juegos desde FreeToGame API
-- `data/licenses.json` → Licencias distribuidas entre usuarios
-
-## Pruebas
-
-```bash
-# Pruebas unitarias
-npm test
-
-# Pruebas e2e
-npm run test:e2e
-```
+Descarga los juegos desde la API FreeToGame y genera:
+- `data/libraries.json` → bibliotecas de los usuarios de prueba.
+- `data/licenses.json` → licencias distribuidas entre los usuarios de prueba.
 
 ## Endpoints
 
 | Método | Ruta | Descripción | Autorización |
-|--------|------|-------------|--------------|
-| `GET` | `/health` | Health check | Público |
-| `GET` | `/v1/biblioteca` | Lista biblioteca del usuario | Sesión válida |
-| `POST` | `/v1/compras` | Crea nueva licencia | Sesión válida |
-| `GET` | `/v1/licencias` | Lista todas las licencias | `administradores` |
-| `DELETE` | `/v1/licencias/:id` | Revoca licencia | `administradores` |
-| `GET` | `/v1/auditoria` | Historial de revocaciones | `administradores` |
+|---|---|---|---|
+| `GET` | `/health` | Health check. | Público |
+| `GET` | `/v1/biblioteca` | Licencias activas del usuario (`x-user-sub`). | Header `x-user-sub` presente (401 si falta) |
+| `POST` | `/v1/compras` | Crea una licencia para el usuario (body: `{"gameId": "..."}`). | Header `x-user-sub` presente |
+| `GET` | `/v1/licencias` | Lista todas las licencias. | `administradores` |
+| `DELETE` | `/v1/licencias/:id` | Revoca una licencia y registra auditoría. | `administradores` |
+| `GET` | `/v1/auditoria` | Historial de revocaciones. | `administradores` |
 
-## Ejemplos de curl
+### Autorización
 
-### Health check
+- `TokenPresenceGuard` exige el header `x-user-sub` → `401 Unauthorized`.
+- `AdministratorGuard` exige que `x-user-groups` contenga `administradores` → `403 Forbidden`.
+- La biblioteca siempre pertenece al usuario del `sub`: el frontend jamás envía un `userId`.
+
+### Ejemplos con curl
 
 ```bash
+# Health check (público)
 curl -i http://localhost:3003/health
-```
 
-**Respuesta esperada**:
-
-```http
-HTTP/1.1 200 OK
-Content-Type: application/json
-
-{"status":"ok","service":"vidalstore-biblioteca","timestamp":"2026-09-20T12:45:00.000Z"}
-```
-
-### Biblioteca sin token (401)
-
-```bash
+# Biblioteca sin autenticación → 401
 curl -i http://localhost:3003/v1/biblioteca
-```
 
-**Respuesta esperada**:
+# Biblioteca del usuario → 200
+curl -i http://localhost:3003/v1/biblioteca \
+  -H "x-user-sub: user-123" \
+  -H "x-user-groups: jugadores"
 
-```http
-HTTP/1.1 401 Unauthorized
-```
-
-### Biblioteca con token (200)
-
-```bash
-curl -i \
-  http://localhost:3003/v1/biblioteca \
-  -H "Authorization: Bearer $ACCESS_TOKEN"
-```
-
-**Respuesta esperada**:
-
-```http
-HTTP/1.1 200 OK
-Content-Type: application/json
-
-[{"id":"lib-1","userId":"user-123","gameId":"game-1","purchasedAt":"2026-09-20T12:45:00.000Z","revoked":false}]
-```
-
-### Compras con token (201)
-
-```bash
-curl -i \
-  -X POST http://localhost:3003/v1/compras \
+# Comprar un juego → 201
+curl -i -X POST http://localhost:3003/v1/compras \
+  -H "x-user-sub: user-123" \
+  -H "x-user-groups: jugadores" \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
-  -d '{"gameId":"game-1"}'
+  -d '{"gameId":"ftg-1"}'
+
+# Comprar el mismo juego → 400
+curl -i -X POST http://localhost:3003/v1/compras \
+  -H "x-user-sub: user-123" \
+  -H "Content-Type: application/json" \
+  -d '{"gameId":"ftg-1"}'
+
+# Listar licencias como jugador → 403
+curl -i http://localhost:3003/v1/licencias \
+  -H "x-user-sub: user-123" \
+  -H "x-user-groups: jugadores"
+
+# Listar licencias como administrador → 200
+curl -i http://localhost:3003/v1/licencias \
+  -H "x-user-sub: admin-001" \
+  -H "x-user-groups: administradores"
+
+# Revocar licencia → 200 (crea registro de auditoría)
+curl -i -X DELETE http://localhost:3003/v1/licencias/lib-1 \
+  -H "x-user-sub: admin-001" \
+  -H "x-user-groups: administradores"
+
+# Auditoría como administrador → 200
+curl -i http://localhost:3003/v1/auditoria \
+  -H "x-user-sub: admin-001" \
+  -H "x-user-groups: administradores"
 ```
 
-**Respuesta esperada**:
+## Flujo de revocación
 
-```http
-HTTP/1.1 201 Created
-Content-Type: application/json
-
-{"id":"purchase-001","userId":"user-123","gameId":"game-1","purchasedAt":"2026-09-20T12:45:00.000Z"}
-```
-
-### Licencias con jugador (403)
-
-```bash
-curl -i \
-  http://localhost:3003/v1/licencias \
-  -H "Authorization: Bearer $PLAYER_TOKEN"
-```
-
-**Respuesta esperada**:
-
-```http
-HTTP/1.1 403 Forbidden
-```
-
-### Licencias con administrador (200)
-
-```bash
-curl -i \
-  http://localhost:3003/v1/licencias \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-```
-
-**Respuesta esperada**:
-
-```http
-HTTP/1.1 200 OK
-Content-Type: application/json
-
-[{"id":"lib-1","userId":"user-123","gameId":"game-1","purchasedAt":"2026-09-20T12:45:00.000Z","revoked":false}]
-```
-
-### Revocar licencia (200)
-
-```bash
-curl -i \
-  -X DELETE http://localhost:3003/v1/licencias/lib-1 \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-```
-
-**Respuesta esperada**:
-
-```http
-HTTP/1.1 200 OK
-Content-Type: application/json
-
-{"id":"lib-1","userId":"user-123","gameId":"game-1","purchasedAt":"2026-09-20T12:45:00.000Z","revoked":true,"revokedAt":"2026-09-20T12:46:00.000Z","revokedBy":"admin-001"}
-```
-
-### Auditoría con administrador (200)
-
-```bash
-curl -i \
-  http://localhost:3003/v1/auditoria \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-```
-
-**Respuesta esperada**:
-
-```http
-HTTP/1.1 200 OK
-Content-Type: application/json
-
-[{"id":"audit-001","licenseId":"lib-1","gameId":"game-1","userId":"user-123","revokedBy":"admin-001","revokedAt":"2026-09-20T12:46:00.000Z"}]
-```
-
-## Flujo de autenticación
-
-1. **Usuario se autentica en Cognito**
-   - Frontend redirige a Cognito con PKCE
-   - Usuario ingresa credenciales
-   - Cognito devuelve `access_token` con claims:
-     - `sub`: ID del usuario
-     - `cognito:groups`: ["jugadores"] o ["administradores"]
-
-2. **Frontend envía petición**
-   - Agrega token en header: `Authorization: Bearer <access_token>`
-   - Envía a API Gateway
-
-3. **API Gateway valida token**
-   - Verifica firma contra JWKS
-   - Verifica emisor (`iss`)
-   - Verifica vigencia (`exp`, `nbf`)
-   - Verifica tipo de token (`token_use = access`)
-   - Verifica `client_id`
-   - Si es inválido → `401 Unauthorized`
-
-4. **BFF autoriza por grupo**
-   - Lee `cognito:groups` del token
-   - Si la ruta requiere `administradores` y el usuario es `jugadores` → `403 Forbidden`
-   - Si el grupo es válido → enruta al microservicio
-
-5. **Microservicio entrega datos**
-   - Obtiene `userId` desde `request.user.sub`
-   - Filtra datos por usuario
-   - Retorna respuesta
+1. El administrador llama `DELETE /v1/licencias/:id`.
+2. `LicensesService` marca la licencia como `revoked: true` y guarda `revokedAt` y `revokedBy`.
+3. `AuditService` registra un `AuditRecord` con licencia, juego, usuario, quién revocó y cuándo.
+4. La auditoría queda disponible en `GET /v1/auditoria`.
 
 ## Códigos de respuesta
 
 | Código | Significado | Cuándo se usa |
-|--------|-------------|---------------|
-| `200 OK` | Éxito | Lectura exitosa |
-| `201 Created` | Recurso creado | POST exitoso |
-| `204 No Content` | Sin contenido | DELETE exitoso |
-| `401 Unauthorized` | No autenticado | Token ausente, inválido o vencido |
-| `403 Forbidden` | No autorizado | Token válido pero rol insuficiente |
-| `404 Not Found` | No encontrado | Recurso no existe |
-| `500 Internal Server Error` | Error del servidor | Excepción no manejada |
+|---|---|---|
+| `200 OK` | Éxito | Lecturas y revocaciones exitosas. |
+| `201 Created` | Recurso creado | `POST /v1/compras`. |
+| `400 Bad Request` | Solicitud inválida | Juego duplicado o falta `gameId`. |
+| `401 Unauthorized` | No autenticado | Falta `x-user-sub`. |
+| `403 Forbidden` | No autorizado | No es `administradores`. |
+| `404 Not Found` | No encontrado | Licencia inexistente. |
 
-## Flujo de revocación de licencia
+## Pruebas
 
-1. **Administrador revoca licencia**
-   ```bash
-   DELETE /v1/licencias/:id
-   Authorization: Bearer <admin_token>
-   ```
-
-2. **LicensesService actualiza licencia**
-   ```ts
-   license.revoked = true;
-   license.revokedAt = new Date().toISOString();
-   license.revokedBy = request.user.sub; // "admin-001"
-   ```
-
-3. **AuditService registra auditoría**
-   ```ts
-   {
-     id: "audit-001",
-     licenseId: "lib-1",
-     gameId: "game-1",
-     userId: "user-123",
-     revokedBy: "admin-001",
-     revokedAt: "2026-09-20T12:46:00.000Z"
-   }
-   ```
-
-4. **Auditoría disponible para consulta**
-   ```bash
-   GET /v1/auditoria
-   Authorization: Bearer <admin_token>
-   ```
-
-## Seguridad
-
-- ✅ No commitear `.env` con valores reales
-- ✅ No commitear credenciales de AWS
-- ✅ Los IDs de User Pool y App Client son públicos por diseño
-- ✅ Usar siempre `sessionStorage` en el frontend
-- ✅ Validar token en Gateway, BFF y microservicio
-- ✅ Autorizar por `cognito:groups`, no por scopes
-
-## Estructura del proyecto
-
-src/
-├── library/
-│ ├── library.controller.ts
-│ ├── library.service.ts
-│ └── library.module.ts
-├── purchase/
-│ ├── purchase.controller.ts
-│ ├── purchase.service.ts
-│ └── purchase.module.ts
-├── licenses/
-│ ├── licenses.controller.ts
-│ ├── licenses.service.ts
-│ └── licenses.module.ts
-├── audit/
-│ ├── audit.controller.ts
-│ ├── audit.service.ts
-│ └── audit.module.ts
-├── common/
-│ ├── guards/
-│ │ ├── token-presence.guard.ts
-│ │ └── administrator.guard.ts
-│ └── filters/
-├── health/
-│ ├── health.controller.ts
-│ └── health.module.ts
-├── app.module.ts
-└── main.ts
-
-data/
-├── seed.ts
-├── libraries.json
-└── licenses.json
-
-test/
-├── app.e2e-spec.ts
-└── jest-e2e.json
-
+```bash
+npm test          # pruebas unitarias
+npm run test:watch
+npm run test:cov  # con cobertura
+npm run test:e2e  # pruebas e2e
+npm run lint      # oxlint
+```
 
 ## Scripts disponibles
 
 ```bash
-npm run build        # Compilar TypeScript
-npm run start:dev    # Levantar en desarrollo
-npm run start:prod   # Leventar en producción
-npm test             # Ejecutar pruebas unitarias
-npm run test:e2e     # Ejecutar pruebas e2e
-npm run seed         # Generar datos desde FreeToGame API
-npm run lint         # Ejecutar linter
+npm run build        # compilar TypeScript
+npm run start:dev    # desarrollo con watch
+npm run start:prod   # producción
+npm run seed         # seed desde FreeToGame API
+npm test             # pruebas unitarias
+npm run test:e2e     # pruebas e2e
+npm run lint         # oxlint
+npm run format       # prettier
+```
+
+## Estructura del proyecto
+
+```text
+src/
+├── audit/                   # GET /v1/auditoria, AuditRecordEntity
+├── common/
+│   └── guards/              # TokenPresenceGuard, AdministratorGuard
+├── health/                  # health check
+├── library/
+│   ├── dto/                 # create-license, library-response
+│   ├── entities/            # LibraryEntity, LicenseEntity
+│   ├── repositories/        # InMemoryLibraryRepository
+│   └── library.controller.ts
+├── licenses/                # GET/DELETE /v1/licencias
+├── purchase/                # POST /v1/compras
+├── app.module.ts
+└── main.ts
+
+data/                        # seed y datasets (libraries.json, licenses.json)
+test/                        # pruebas e2e
 ```
 
 ## Licencia
 
-Proyecto académico DUOC UC - DSY1107 - Desarrollo Cloud Native I
+Proyecto académico DUOC UC — DSY1107 Desarrollo Cloud Native I.
