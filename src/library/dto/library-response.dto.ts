@@ -1,7 +1,7 @@
-import { License } from '../entities/license.entity';
+import { LicenseResponse } from '../library.service';
 
 export class LibraryResponseDto {
   userId: string;
-  licenses: License[];
+  licenses: LicenseResponse[];
   total: number;
 }

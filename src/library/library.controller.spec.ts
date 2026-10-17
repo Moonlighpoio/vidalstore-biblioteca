@@ -33,8 +33,8 @@ describe('LibraryController', () => {
     jest.clearAllMocks();
   });
 
-  it('should return the authenticated user library', () => {
-    libraryService.findByUserId.mockReturnValue({
+  it('should return the authenticated user library', async () => {
+    libraryService.findByUserId.mockResolvedValue({
       userId: 'user-player-001',
       licenses: [],
       total: 0,
@@ -47,8 +47,7 @@ describe('LibraryController', () => {
       },
     } as never;
 
-    const result =
-      controller.findOwnLibrary(request);
+    const result = await controller.findOwnLibrary(request);
 
     expect(result).toEqual({
       userId: 'user-player-001',
@@ -72,7 +71,7 @@ describe('LibraryController', () => {
       controller.findOwnLibrary(request),
     ).toThrow(UnauthorizedException);
   });
-  it('should not use an external user id', () => {
+  it('should not use an external user id', async () => {
   const request = {
     user: {
       sub: 'authenticated-user',
@@ -86,14 +85,13 @@ describe('LibraryController', () => {
     },
   } as never;
 
-  libraryService.findByUserId.mockReturnValue({
+  libraryService.findByUserId.mockResolvedValue({
     userId: 'authenticated-user',
     licenses: [],
     total: 0,
   });
 
-  const result =
-    controller.findOwnLibrary(request);
+  const result = await controller.findOwnLibrary(request);
 
   expect(
     libraryService.findByUserId,

@@ -1,39 +1,52 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { AuditService } from '../audit/audit.service';
-import { InMemoryLibraryRepository } from '../library/repositories/in-memory-library.repository';
-import { License } from '../library/entities/license.entity';
+import { LicenciasRepository } from './licencias.repository';
+import { Licencia } from './entities/licencia.entity';
+import { RabbitMqPublisher } from '../mensajeria/rabbitmq.publisher';
+import { ROUTING_KEYS } from '../mensajeria/topologia';
 
 @Injectable()
 export class LicensesService {
   constructor(
-    private readonly repository: InMemoryLibraryRepository,
-    private readonly auditService: AuditService,
+    private readonly repository: LicenciasRepository,
+    private readonly publisher: RabbitMqPublisher,
   ) {}
 
-  findAll(): License[] {
-    return this.repository.findAllLicenses();
+  findAll(): Promise<Licencia[]> {
+    return this.repository.findAll();
   }
 
-  revokeLicense(licenseId: string, revokedBy: string): License {
-    const license = this.repository.findById(licenseId);
+  async revokeLicense(
+    licenseId: string,
+    revokedBy: string,
+    motivo = 'Sin motivo indicado',
+  ): Promise<Licencia> {
+    const license = await this.repository.findById(licenseId);
 
     if (!license) {
       throw new NotFoundException('License not found');
     }
 
-    license.revoked = true;
-    license.revokedAt = new Date().toISOString();
-    license.revokedBy = revokedBy;
+    if (license.estado === 'revocada') {
+      return license;
+    }
 
-    this.repository.update(license);
+    license.estado = 'revocada';
+    license.revocadaEn = new Date();
+    license.revocadaPor = revokedBy;
 
-    this.auditService.recordRevocation({
-      licenseId: license.id,
-      gameId: license.gameId,
-      userId: license.userId,
-      revokedBy,
+    const saved = await this.repository.save(license);
+
+    await this.publisher.publishEvento({
+      routingKey: ROUTING_KEYS.licenciaRevocada,
+      payload: {
+        licenciaId: saved.id,
+        juegoId: saved.juegoId,
+        usuarioSub: saved.usuarioSub,
+        revocadaPor: revokedBy,
+        motivo,
+      },
     });
 
-    return license;
+    return saved;
   }
 }

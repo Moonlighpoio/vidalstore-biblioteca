@@ -6,15 +6,10 @@ import {
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
-import { Request } from 'express';
-import { PurchaseService, CreatePurchaseDto, type Purchase } from './purchase.service';
+import { PurchaseService } from './purchase.service';
 import { TokenPresenceGuard } from '../common/guards/token-presence.guard';
-
-interface AuthenticatedRequest extends Request {
-  user?: {
-    sub: string;
-  };
-}
+import { resolveRequestSub } from '../common/auth/sub.extractor';
+import type { RequestWithUser } from '../common/auth/sub.extractor';
 
 @Controller('v1/compras')
 @UseGuards(TokenPresenceGuard)
@@ -23,12 +18,12 @@ export class PurchaseController {
 
   @Post()
   createPurchase(
-    @Req() request: AuthenticatedRequest,
-    @Body() body: { gameId: string },
-  ): Purchase {
-    const userId = request.user?.sub;
+    @Req() request: RequestWithUser,
+    @Body() body: { gameId?: string },
+  ) {
+    const usuarioSub = resolveRequestSub(request);
 
-    if (!userId) {
+    if (!usuarioSub) {
       throw new UnauthorizedException('Token subject is required');
     }
 
@@ -36,11 +31,9 @@ export class PurchaseController {
       throw new UnauthorizedException('gameId is required');
     }
 
-    const dto: CreatePurchaseDto = {
-      userId,
-      gameId: body.gameId,
-    };
-
-    return this.purchaseService.createPurchase(dto);
+    return this.purchaseService.createPurchase({
+      usuarioSub,
+      juegoId: body.gameId,
+    });
   }
 }
