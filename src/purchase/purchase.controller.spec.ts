@@ -24,16 +24,14 @@ describe('PurchaseController', () => {
     service = module.get<PurchaseService>(PurchaseService);
   });
 
-  it('should be defined', () => {
-    expect(controller).toBeDefined();
-  });
-
-  it('should use the authenticated user sub', () => {
+  it('should use the authenticated user sub from the token', async () => {
+    const tokenPayload = Buffer.from(
+      JSON.stringify({ sub: 'user-player-001' }),
+    ).toString('base64url');
     const request = {
-      user: {
-        sub: 'user-player-001',
-      },
-    } as any;
+      headers: { authorization: `Bearer a.${tokenPayload}.c` },
+      user: { sub: 'header-user', groups: [] },
+    } as never;
 
     const mockResult = {
       id: 'purchase-001',
@@ -42,34 +40,27 @@ describe('PurchaseController', () => {
       purchasedAt: new Date().toISOString(),
     };
 
-    jest.spyOn(service, 'createPurchase').mockReturnValue(mockResult);
+    jest.spyOn(service, 'createPurchase').mockResolvedValue(mockResult as never);
 
-    const result = controller.createPurchase(
-      request,
-      {
-        gameId: 'game-001',
-      },
-    );
-
-    expect(result).toEqual(mockResult);
-    expect(service.createPurchase).toHaveBeenCalledWith({
-      userId: 'user-player-001',
+    const result = controller.createPurchase(request, {
       gameId: 'game-001',
+    });
+
+    await expect(result).resolves.toEqual(mockResult);
+    expect(service.createPurchase).toHaveBeenCalledWith({
+      usuarioSub: 'user-player-001',
+      juegoId: 'game-001',
     });
   });
 
   it('should throw if user is not authenticated', () => {
     const request = {
+      headers: {},
       user: undefined,
-    } as any;
+    } as never;
 
     expect(() => {
-      controller.createPurchase(
-        request,
-        {
-          gameId: 'game-001',
-        },
-      );
+      void controller.createPurchase(request, { gameId: 'game-001' });
     }).toThrow(UnauthorizedException);
   });
 });

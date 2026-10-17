@@ -1,11 +1,10 @@
 import { Module } from '@nestjs/common';
 import { LicensesController } from './licenses.controller';
 import { LicensesService } from './licenses.service';
-import { AuditModule } from '../audit/audit.module';
-import { LibraryModule } from '../library/library.module';
+import { LicenciasRepositoryModule } from './licencias-repository.module';
 
 @Module({
-  imports: [AuditModule, LibraryModule],
+  imports: [LicenciasRepositoryModule],
   controllers: [LicensesController],
   providers: [LicensesService],
   exports: [LicensesService],

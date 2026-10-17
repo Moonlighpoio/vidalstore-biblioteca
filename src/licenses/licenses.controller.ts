@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Delete,
   Get,
@@ -7,18 +8,12 @@ import {
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
-import { Request } from 'express';
 import { LicensesService } from './licenses.service';
-import type { License } from '../library/entities/license.entity';
+import type { Licencia } from './entities/licencia.entity';
 import { TokenPresenceGuard } from '../common/guards/token-presence.guard';
 import { AdministratorGuard } from '../common/guards/administrator.guard';
-
-interface AuthenticatedRequest extends Request {
-  user?: {
-    sub: string;
-    'cognito:groups'?: string[];
-  };
-}
+import { resolveRequestSub } from '../common/auth/sub.extractor';
+import type { RequestWithUser } from '../common/auth/sub.extractor';
 
 @Controller('v1/licencias')
 @UseGuards(TokenPresenceGuard)
@@ -27,8 +22,8 @@ export class LicensesController {
 
   @Get()
   @UseGuards(AdministratorGuard)
-  findAll(@Req() request: AuthenticatedRequest): License[] {
-    if (!request.user?.sub) {
+  findAll(@Req() request: RequestWithUser): Promise<Licencia[]> {
+    if (!resolveRequestSub(request)) {
       throw new UnauthorizedException();
     }
 
@@ -38,14 +33,16 @@ export class LicensesController {
   @Delete(':id')
   @UseGuards(AdministratorGuard)
   revokeLicense(
-    @Req() request: AuthenticatedRequest,
+    @Req() request: RequestWithUser,
     @Param('id') id: string,
-  ): License {
-    if (!request.user?.sub) {
+    @Body() body: { motivo?: string },
+  ): Promise<Licencia> {
+    const revokedBy = resolveRequestSub(request);
+
+    if (!revokedBy) {
       throw new UnauthorizedException();
     }
 
-    const revokedBy = request.user.sub;
-    return this.licensesService.revokeLicense(id, revokedBy);
+    return this.licensesService.revokeLicense(id, revokedBy, body?.motivo);
   }
 }

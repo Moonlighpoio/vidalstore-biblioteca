@@ -1,10 +1,12 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { HttpModule } from '@nestjs/axios';
+import { DatabaseModule } from './database/database.module';
+import { MensajeriaModule } from './mensajeria/mensajeria.module';
 import { LibraryModule } from './library/library.module';
 import { PurchaseModule } from './purchase/purchase.module';
 import { LicensesModule } from './licenses/licenses.module';
-import { HealthModule } from './health/health.module'
+import { HealthModule } from './health/health.module';
 import { AuditModule } from './audit/audit.module';
 
 @Module({
@@ -13,6 +15,8 @@ import { AuditModule } from './audit/audit.module';
       isGlobal: true,
     }),
     HttpModule,
+    DatabaseModule,
+    MensajeriaModule,
     LibraryModule,
     PurchaseModule,
     LicensesModule,

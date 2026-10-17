@@ -1,22 +1,23 @@
 import { Injectable } from '@nestjs/common';
+import { LicenciasRepository } from '../licenses/licencias.repository';
 import { AuditRecord } from './entities/audit-record.entity';
 
 @Injectable()
 export class AuditService {
-  private readonly records: AuditRecord[] = [];
+  constructor(private readonly repository: LicenciasRepository) {}
 
-  recordRevocation(input: Omit<AuditRecord, 'id' | 'revokedAt'>) {
-    const record: AuditRecord = {
-      id: crypto.randomUUID(),
-      revokedAt: new Date().toISOString(),
-      ...input,
-    };
+  async findAll(): Promise<AuditRecord[]> {
+    const revoked = (await this.repository.findAll()).filter(
+      (license) => license.estado === 'revocada',
+    );
 
-    this.records.push(record);
-    return record;
-  }
-
-  findAll(): AuditRecord[] {
-    return [...this.records];
+    return revoked.map((license) => ({
+      id: license.id,
+      licenseId: license.id,
+      gameId: license.juegoId,
+      userId: license.usuarioSub,
+      revokedBy: license.revocadaPor ?? 'desconocido',
+      revokedAt: (license.revocadaEn ?? license.adquiridaEn).toISOString(),
+    }));
   }
 }

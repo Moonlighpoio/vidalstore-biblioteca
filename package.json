@@ -32,7 +32,12 @@
     "class-validator": "^0.15.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "uuid": "^14.0.2"
+    "uuid": "^14.0.2",
+    "amqplib": "^0.10.4",
+    "@types/amqplib": "^0.10.5",
+    "@nestjs/typeorm": "^12.0.2",
+    "typeorm": "^0.3.20",
+    "pg": "^8.12.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^12.0.0",

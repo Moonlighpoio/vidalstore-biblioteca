@@ -1,60 +1,66 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
-import { InMemoryLibraryRepository } from '../library/repositories/in-memory-library.repository';
-import { License } from '../library/entities/license.entity';
-
-export interface Purchase {
-  id: string;
-  userId: string;
-  gameId: string;
-  purchasedAt: string;
-}
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { LicenciasRepository } from '../licenses/licencias.repository';
+import { RabbitMqPublisher } from '../mensajeria/rabbitmq.publisher';
+import { ROUTING_KEYS } from '../mensajeria/topologia';
+import { LicenseResponse } from '../library/library.service';
 
 export interface CreatePurchaseDto {
-  userId: string;
-  gameId: string;
+  usuarioSub: string;
+  juegoId: string;
 }
 
 @Injectable()
 export class PurchaseService {
+  private readonly logger = new Logger(PurchaseService.name);
+
   constructor(
-    private readonly libraryRepository: InMemoryLibraryRepository,
+    private readonly repository: LicenciasRepository,
+    private readonly publisher: RabbitMqPublisher,
   ) {}
 
-  createPurchase(dto: CreatePurchaseDto): Purchase {
-    const alreadyOwned = this.libraryRepository
-      .findLicensesByUserId(dto.userId)
-      .some((license) => license.gameId === dto.gameId);
+  async createPurchase(dto: CreatePurchaseDto): Promise<LicenseResponse> {
+    const existing = await this.repository.findActiveByUsuarioSubAndJuego(
+      dto.usuarioSub,
+      dto.juegoId,
+    );
 
-    if (alreadyOwned) {
+    if (existing) {
       throw new BadRequestException('Game already purchased by this user');
     }
 
-    const license: License = {
-      id: crypto.randomUUID(),
-      userId: dto.userId,
-      gameId: dto.gameId,
-      purchasedAt: new Date().toISOString(),
+    const adquiridaEn = new Date();
+
+    const license = await this.repository.save(
+      this.repository.create({
+        usuarioSub: dto.usuarioSub,
+        juegoId: dto.juegoId,
+        estado: 'activa',
+        adquiridaEn,
+        revocadaEn: null,
+        revocadaPor: null,
+      }),
+    );
+
+    await this.publisher.publishEvento({
+      routingKey: ROUTING_KEYS.compraRealizada,
+      payload: {
+        licenciaId: license.id,
+        juegoId: license.juegoId,
+        usuarioSub: license.usuarioSub,
+        adquiridaEn: license.adquiridaEn.toISOString(),
+      },
+    });
+
+    return {
+      id: license.id,
+      userId: license.usuarioSub,
+      gameId: license.juegoId,
+      gameTitle: license.juegoId,
+      purchasedAt: license.adquiridaEn.toISOString(),
       revoked: false,
+      revokedAt: null,
+      revokedBy: null,
+      estado: license.estado,
     };
-
-    this.libraryRepository.save(license);
-
-    const purchase: Purchase = {
-      id: license.id,
-      userId: license.userId,
-      gameId: license.gameId,
-      purchasedAt: license.purchasedAt,
-    };
-
-    return purchase;
-  }
-
-  findAll(): Purchase[] {
-    return this.libraryRepository.findAllLicenses().map((license) => ({
-      id: license.id,
-      userId: license.userId,
-      gameId: license.gameId,
-      purchasedAt: license.purchasedAt,
-    }));
   }
 }

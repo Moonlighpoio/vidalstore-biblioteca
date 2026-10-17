@@ -4,9 +4,11 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { extractSubFromToken } from '../auth/sub.extractor';
 
 interface AuthenticatedRequest {
   headers: {
+    authorization?: string;
     'x-user-sub'?: string | string[];
     'x-user-groups'?: string | string[];
   };
@@ -17,30 +19,23 @@ interface AuthenticatedRequest {
 }
 
 @Injectable()
-export class TokenPresenceGuard
-  implements CanActivate
-{
-  canActivate(
-    context: ExecutionContext,
-  ): boolean {
+export class TokenPresenceGuard implements CanActivate {
+  canActivate(context: ExecutionContext): boolean {
     const request =
       context.switchToHttp().getRequest<AuthenticatedRequest>();
 
-    const userSub = this.getHeaderValue(
-      request.headers['x-user-sub'],
-    );
+    const fromToken = extractSubFromToken(request.headers.authorization);
+
+    const userSub =
+      fromToken ?? this.getHeaderValue(request.headers['x-user-sub']);
 
     if (!userSub) {
-      throw new UnauthorizedException(
-        'Authenticated user is required',
-      );
+      throw new UnauthorizedException('Authenticated user is required');
     }
 
     request.user = {
       sub: userSub,
-      groups: this.parseGroups(
-        request.headers['x-user-groups'],
-      ),
+      groups: this.parseGroups(request.headers['x-user-groups']),
     };
 
     return true;

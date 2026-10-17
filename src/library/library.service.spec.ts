@@ -1,47 +1,46 @@
 import { LibraryService } from './library.service';
-import { InMemoryLibraryRepository } from './repositories/in-memory-library.repository';
+import { LicenciasRepository } from '../licenses/licencias.repository';
+import { GameNamesService } from './game-names.service';
+import { Licencia } from '../licenses/entities/licencia.entity';
 
 describe('LibraryService', () => {
   let service: LibraryService;
 
   const repository = {
-    findLicensesByUserId: jest.fn(),
-    resolveGameName: jest.fn(
-      () => 'game-001',
-    ),
-  } as unknown as InMemoryLibraryRepository;
+    findActiveByUsuarioSub: jest.fn(),
+  } as unknown as LicenciasRepository;
+
+  const gameNames = {
+    resolve: jest.fn((gameId: string) => gameId),
+  } as unknown as GameNamesService;
 
   beforeEach(() => {
-    service = new LibraryService(repository);
+    service = new LibraryService(repository, gameNames);
     jest.clearAllMocks();
   });
 
-  it('should return the authenticated user library', () => {
-    repository.findLicensesByUserId =
-      jest.fn().mockReturnValue([
-        {
-          id: 'license-001',
-          userId: 'user-player-001',
-          gameId: 'game-001',
-          purchasedAt:
-            '2026-09-19T12:00:00.000Z',
-          revoked: false,
-        },
-      ]);
+  it('should return the authenticated user library', async () => {
+    const license = {
+      id: 'license-001',
+      usuarioSub: 'user-player-001',
+      juegoId: 'game-001',
+      estado: 'activa',
+      adquiridaEn: new Date('2026-09-19T12:00:00.000Z'),
+      revocadaEn: null,
+      revocadaPor: null,
+    } as Licencia;
 
-    const result = service.findByUserId(
+    (repository.findActiveByUsuarioSub as jest.Mock).mockResolvedValue([
+      license,
+    ]);
+    (gameNames.resolve as jest.Mock).mockReturnValue('Overwatch');
+
+    const result = await service.findByUserId('user-player-001');
+
+    expect(repository.findActiveByUsuarioSub).toHaveBeenCalledWith(
       'user-player-001',
     );
-
-    expect(
-      repository.findLicensesByUserId,
-    ).toHaveBeenCalledWith(
-      'user-player-001',
-    );
-
-    expect(
-      repository.resolveGameName,
-    ).toHaveBeenCalledWith('game-001');
+    expect(gameNames.resolve).toHaveBeenCalledWith('game-001');
 
     expect(result).toEqual({
       userId: 'user-player-001',
@@ -50,51 +49,27 @@ describe('LibraryService', () => {
           id: 'license-001',
           userId: 'user-player-001',
           gameId: 'game-001',
-          purchasedAt:
-            '2026-09-19T12:00:00.000Z',
+          gameTitle: 'Overwatch',
+          purchasedAt: '2026-09-19T12:00:00.000Z',
           revoked: false,
-          gameTitle: 'game-001',
+          revokedAt: null,
+          revokedBy: null,
+          estado: 'activa',
         },
       ],
       total: 1,
     });
   });
 
-  it('should return an empty library for a user without licenses', () => {
-    repository.findLicensesByUserId =
-      jest.fn().mockReturnValue([]);
+  it('should return an empty library for a user without licenses', async () => {
+    (repository.findActiveByUsuarioSub as jest.Mock).mockResolvedValue([]);
 
-    const result = service.findByUserId(
-      'user-without-games',
-    );
+    const result = await service.findByUserId('user-without-games');
 
     expect(result).toEqual({
       userId: 'user-without-games',
       licenses: [],
       total: 0,
     });
-  });
-
-  it('should query only the requested authenticated user', () => {
-    repository.findLicensesByUserId =
-      jest.fn().mockReturnValue([]);
-
-    service.findByUserId('user-player-001');
-
-    expect(
-      repository.findLicensesByUserId,
-    ).toHaveBeenCalledTimes(1);
-
-    expect(
-      repository.findLicensesByUserId,
-    ).toHaveBeenCalledWith(
-      'user-player-001',
-    );
-
-    expect(
-      repository.findLicensesByUserId,
-    ).not.toHaveBeenCalledWith(
-      'other-user',
-    );
   });
 });
